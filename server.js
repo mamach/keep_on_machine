@@ -1,7 +1,9 @@
 const puppeteer = require('puppeteer');
 const fs = require('fs');
+require('dotenv').config(); // Load .env configuration
 
 (async () => {
+  let browser;
   try {
     // Read URLs from file
     const urls = fs.readFileSync('urls.txt', 'utf8').split('\n').filter(url => url.trim() !== '');
@@ -10,33 +12,47 @@ const fs = require('fs');
       return;
     }
 
+    // Retrieve configuration from .env
+    const executablePath = process.env.EXECUTABLE_PATH;
+    const timeDelay = parseInt(process.env.TIME_DELAY, 10) || 5000;
+
     // Launch Puppeteer
-    const browser = await puppeteer.launch({ 
-		headless: false ,
-		executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-		args: ['--no-sandbox', '--disable-setuid-sandbox'],
-	}); // Set headless to false for debugging
+    browser = await puppeteer.launch({
+      headless: false,
+      executablePath: executablePath,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
 
     while (true) {
       // Pick a random URL
       const randomIndex = Math.floor(Math.random() * urls.length);
       const randomUrl = urls[randomIndex];
-      console.log(`Opening: ${randomUrl}`);
+      console.log(`[${new Date().toISOString()}] Opening: ${randomUrl}`);
 
       // Open the URL in a new page
       const page = await browser.newPage();
-      await page.goto(randomUrl);
+      try {
+        await page.goto(randomUrl, { timeout: 10000 }); // Timeout after 10 seconds
+      } catch (err) {
+        console.error(`Failed to load ${randomUrl}: ${err.message}`);
+      }
 
-      // Wait for 5 seconds
-      await new Promise(resolve => setTimeout(resolve, 5000));
+      // Wait for configured time delay
+      await new Promise(resolve => setTimeout(resolve, timeDelay));
 
       // Close the page
       await page.close();
     }
-
-    // Close the browser (This will never be reached due to the infinite loop)
-    await browser.close();
   } catch (error) {
     console.error('Error:', error.message);
+  } finally {
+    if (browser) await browser.close();
   }
 })();
+
+// Graceful shutdown
+process.on('SIGINT', async () => {
+  console.log('\nShutting down...');
+  if (browser) await browser.close();
+  process.exit(0);
+});

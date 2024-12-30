@@ -21,3 +21,9 @@ npm install
 ```
 node servers.js
 ```
+
+# Stop the Application
+- To stop the Application use the following command in terminal where application is started.
+```
+Ctrl + C
+```
